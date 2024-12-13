@@ -1,108 +1,73 @@
 import javax.swing.*;
-import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
+import java.sql.*;
 
-public class RegisterForm extends JDialog {
-    private JTextField tfName;
-    private JTextField tfSurname;
-    private JTextField tfplaceNumber;
-    private JPasswordField tfPassword;
-    private JButton btnRegister;
-    private JButton btnCancel;
-    private JPanel registerPanel;
+public class PayForm extends JDialog {
+    private JButton btncrediCard1month;
+    private JButton btncreditCard1year;
+    private JButton btntransfer1month;
+    private JButton btntranfer1year;
+    private JButton btnbtc1month;
+    private JButton btnbtc1year;
+    private JPanel payForm;
+    private User user; // Kullanıcı bilgisi
 
-    public RegisterForm(JFrame parent) {
-        super(parent);
-        setTitle("Create new account");
-        setContentPane(registerPanel);
-        setMinimumSize(new Dimension(800, 600));
+    public PayForm(User user) {
+        this.user = user; // Kullanıcı nesnesini al
+
+        // Kredi Kartı 1 Aylık Ödeme Butonu
+        btncrediCard1month.addActionListener(e -> handlePayment("Kredi Kartı", "1 Ay"));
+        // Kredi Kartı 1 Yıllık Ödeme Butonu
+        btncreditCard1year.addActionListener(e -> handlePayment("Kredi Kartı", "1 Yıl"));
+        // Banka Transferi 1 Aylık Ödeme Butonu
+        btntransfer1month.addActionListener(e -> handlePayment("Banka Transferi", "1 Ay"));
+        // Banka Transferi 1 Yıllık Ödeme Butonu
+        btntranfer1year.addActionListener(e -> handlePayment("Banka Transferi", "1 Yıl"));
+        // Bitcoin 1 Aylık Ödeme Butonu
+        btnbtc1month.addActionListener(e -> handlePayment("Bitcoin", "1 Ay"));
+        // Bitcoin 1 Yıllık Ödeme Butonu
+        btnbtc1year.addActionListener(e -> handlePayment("Bitcoin", "1 Yıl"));
+
+        setContentPane(payForm);
+        setTitle("Ödeme Sayfası");
+        setSize(400, 300);
         setModal(true);
-        setLocationRelativeTo(parent);
-
-        btnCancel.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                dispose();
-            }
-        });
-
-        btnRegister.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                registerUser();
-            }
-        });
-
-        setVisible(true);
+        setLocationRelativeTo(null);
     }
 
-    private void registerUser() {
-        String name = tfName.getText();
-        String surname = tfSurname.getText();
-        String placeNumber = tfplaceNumber.getText();
-        String password = String.valueOf(tfPassword.getPassword());
-
-        if (name.isEmpty() || surname.isEmpty() || placeNumber.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Bu alanlar boş geçilemez", "HATA", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        user = addUserToDatabase(name, surname, placeNumber, password);
-
-        if (user != null) {
-            JOptionPane.showMessageDialog(this, "Kayıt başarılı!", "Başarılı", JOptionPane.INFORMATION_MESSAGE);
-            dispose(); // Kayıt ekranını kapat
-            new LoginForm(null); // Giriş ekranını aç
-        } else {
-            JOptionPane.showMessageDialog(this, "Kayıt başarısız oldu!", "HATA", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    public User user;
-
-    private User addUserToDatabase(String name, String surname, String placeNumber, String password) {
-        User user = null;
+    private void handlePayment(String method, String duration) {
         final String DB_URL = "jdbc:mysql://localhost:3306/otaparkdb?serverTimezone=UTC";
         final String USER = "root";
         final String PASSWORD = "1234";
-        final String SQL = "INSERT INTO user (name, surname, licensePlate, password) VALUES (?, ?, ?, ?)";
+
+        String sql = "INSERT INTO payment (licensePlate, paymentMethod, paymentDuration) VALUES (?, ?, ?)";
 
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD);
-             PreparedStatement preparedStatement = conn.prepareStatement(SQL)) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            preparedStatement.setString(1, name);
-            preparedStatement.setString(2, surname);
-            preparedStatement.setString(3, placeNumber);
-            preparedStatement.setString(4, password);
+            // SQL sorgusuna değerleri ekle
+            stmt.setString(1, user.placeNumber);
+            stmt.setString(2, method);
+            stmt.setString(3, duration);
 
-            int addedRows = preparedStatement.executeUpdate();
+            stmt.executeUpdate(); // Ödeme verisini veritabanına ekle
 
-            if (addedRows > 0) {
-                user = new User();
-                user.name = name;
-                user.surname = surname;
-                user.placeNumber = placeNumber;
-                user.password = password;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+            // Başarı mesajını `System.out.println` ile yazdır
+            System.out.println(String.format(
+                    "Ödeme Başarılı!\n\nİsim: %s %s\nAraç Plakası: %s\nÖdeme Yöntemi: %s\nSüre: %s",
+                    user.name, user.surname, user.placeNumber, method, duration
+            ));
+            dispose(); // Ödeme ekranını kapat
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            System.out.println("Ödeme sırasında hata oluştu!"); // Hata mesajını `System.out.println` ile yazdır
+            dispose(); // Hata durumunda da ekranı kapat
         }
-
-        return user;
     }
 
-    public static void main(String[] args) {
-        RegisterForm registerForm = new RegisterForm(null);
-        User user = registerForm.user;
-
-        if (user != null) {
-            System.out.println("Kayıt başarılı oldu");
-        } else {
-            System.out.println("Kayıt başarısız oldu");
-        }
+    public JPanel getPayFormPanel() {
+        return payForm;
     }
 }

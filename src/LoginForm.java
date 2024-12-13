@@ -73,6 +73,7 @@ public class LoginForm extends JDialog {
                 user.surname = resultSet.getString("surname");
                 user.placeNumber = resultSet.getString("licensePlate");
                 user.password = resultSet.getString("password");
+
             }
         } catch (Exception e) {
             e.printStackTrace();
