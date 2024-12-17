@@ -1,102 +1,108 @@
 import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 
-public class PayForm   {
-    private JButton btncrediCard1month;
-    private JButton btncreditCard1year;
-    private JButton btntransfer1month;
-    private JButton btntranfer1year;
-    private JButton btnbtc1month;
-    private JButton btnbtc1year;
-    private JPanel payForm;
-    private JButton çıkışYapButton;
+public class RegisterForm extends JDialog {
+    private JTextField tfName;
+    private JTextField tfSurname;
+    private JTextField tfplaceNumber;
+    private JPasswordField tfPassword;
+    private JButton btnRegister;
+    private JButton btnCancel;
+    private JPanel registerPanel;
 
-    private User user; // User nesnesi burada saklanacak
+    public RegisterForm(JFrame parent) {
+        super(parent);
+        setTitle("Create new account");
+        setContentPane(registerPanel);
+        setMinimumSize(new Dimension(800, 600));
+        setModal(true);
+        setLocationRelativeTo(parent);
 
-    // PayForm constructor (yapıcı) metodunu güncelledik
-    public PayForm(User user) {
-        this.user = user; // User nesnesini alıyoruz
-        PaymentManager paymentManager = PaymentManager.getInstance();
-
-        // Butonların olay işleyicilerini tanımlıyoruz
-        btncrediCard1month.addActionListener(new ActionListener() {
+        btnCancel.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                Payment payment = PaymentFactory.createPayment("creditCard1month");
-                payment.pay();
-                paymentManager.processPayment("Kredi Kartı");
-
-                // Ödeme sonrası uyarı mesajı
-                JOptionPane.showMessageDialog(payForm, "Kredi Kartı ile ödeme yapıldı.", "Ödeme Başarılı", JOptionPane.INFORMATION_MESSAGE);
+                dispose();
             }
         });
 
-        btncreditCard1year.addActionListener(new ActionListener() {
+        btnRegister.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                Payment payment = PaymentFactory.createPayment("creditCard1year");
-                payment.pay();
-                paymentManager.processPayment("Kredi Kartı");
-
-                // Ödeme sonrası uyarı mesajı
-                JOptionPane.showMessageDialog(payForm, "Kredi Kartı ile ödeme yapıldı.", "Ödeme Başarılı", JOptionPane.INFORMATION_MESSAGE);
+                registerUser();
             }
         });
 
-        btntransfer1month.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                Payment payment = PaymentFactory.createPayment("transfer1month");
-                payment.pay();
-                paymentManager.processPayment("Banka Transferi");
-
-                // Ödeme sonrası uyarı mesajı
-                JOptionPane.showMessageDialog(payForm, "Banka Transferi ile ödeme yapıldı.", "Ödeme Başarılı", JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-
-        btntranfer1year.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                Payment payment = PaymentFactory.createPayment("transfer1year");
-                payment.pay();
-                paymentManager.processPayment("Banka Transferi");
-
-                // Ödeme sonrası uyarı mesajı
-                JOptionPane.showMessageDialog(payForm, "Banka Transferi ile ödeme yapıldı.", "Ödeme Başarılı", JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-
-        btnbtc1month.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                Payment payment = PaymentFactory.createPayment("btc1month");
-                payment.pay();
-                paymentManager.processPayment("Bitcoin");
-
-                // Ödeme sonrası uyarı mesajı
-                JOptionPane.showMessageDialog(payForm, "Bitcoin ile ödeme yapıldı.", "Ödeme Başarılı", JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-
-        btnbtc1year.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                Payment payment = PaymentFactory.createPayment("btc1year");
-                payment.pay();
-                paymentManager.processPayment("Bitcoin");
-
-                // Ödeme sonrası uyarı mesajı
-                JOptionPane.showMessageDialog(payForm, "Bitcoin ile ödeme yapıldı.", "Ödeme Başarılı", JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-
-
-
+        setVisible(true);
     }
 
-    public JPanel getPayFormPanel() {
-        return payForm;
+    private void registerUser() {
+        String name = tfName.getText();
+        String surname = tfSurname.getText();
+        String placeNumber = tfplaceNumber.getText();
+        String password = String.valueOf(tfPassword.getPassword());
+
+        if (name.isEmpty() || surname.isEmpty() || placeNumber.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Bu alanlar boş geçilemez", "HATA", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        user = addUserToDatabase(name, surname, placeNumber, password);
+
+        if (user != null) {
+            JOptionPane.showMessageDialog(this, "Kayıt başarılı!", "Başarılı", JOptionPane.INFORMATION_MESSAGE);
+            dispose(); // Kayıt ekranını kapat
+            new LoginForm(null); // Giriş ekranını aç
+        } else {
+            JOptionPane.showMessageDialog(this, "Kayıt başarısız oldu!", "HATA", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    public User user;
+
+    private User addUserToDatabase(String name, String surname, String placeNumber, String password) {
+        User user = null;
+        final String DB_URL = "jdbc:mysql://localhost:3306/otaparkdb?serverTimezone=UTC";
+        final String USER = "root";
+        final String PASSWORD = "1234";
+        final String SQL = "INSERT INTO user (name, surname, licensePlate, password) VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD);
+             PreparedStatement preparedStatement = conn.prepareStatement(SQL)) {
+
+            preparedStatement.setString(1, name);
+            preparedStatement.setString(2, surname);
+            preparedStatement.setString(3, placeNumber);
+            preparedStatement.setString(4, password);
+
+            int addedRows = preparedStatement.executeUpdate();
+
+            if (addedRows > 0) {
+                user = new User();
+                user.name = name;
+                user.surname = surname;
+                user.placeNumber = placeNumber;
+                user.password = password;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return user;
+    }
+
+    public static void main(String[] args) {
+        RegisterForm registerForm = new RegisterForm(null);
+        User user = registerForm.user;
+
+        if (user != null) {
+            System.out.println("Kayıt başarılı oldu");
+        } else {
+            System.out.println("Kayıt başarısız oldu");
+        }
     }
 }
