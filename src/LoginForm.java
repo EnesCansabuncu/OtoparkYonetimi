@@ -1,8 +1,12 @@
+import Singleton.DatabaseConnection;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 public class LoginForm extends JDialog {
     private JTextField tfplaceNumber;
@@ -10,6 +14,7 @@ public class LoginForm extends JDialog {
     private JButton btnCancel;
     private JButton btnLogin;
     private JPanel loginPanel;
+    public User user;
 
     public LoginForm(JFrame parent) {
         super(parent);
@@ -19,7 +24,6 @@ public class LoginForm extends JDialog {
         setModal(true);
         setLocationRelativeTo(parent);
 
-        // Cancel butonu olay işleyicisi
         btnCancel.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -27,14 +31,12 @@ public class LoginForm extends JDialog {
             }
         });
 
-        // Login butonu olay işleyicisi
         btnLogin.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String licensePlate = tfplaceNumber.getText();
                 String password = String.valueOf(tfpassword.getPassword());
 
-                // Kullanıcı doğrulama işlemi
                 user = getAuthenticatedUser(licensePlate, password);
 
                 if (user != null) {
@@ -50,16 +52,11 @@ public class LoginForm extends JDialog {
         setVisible(true);
     }
 
-    public User user;
-
     private User getAuthenticatedUser(String licensePlate, String password) {
         User user = null;
-        final String DB_URL = "jdbc:mysql://localhost:3306/otaparkdb?serverTimezone=UTC";
-        final String USER = "root";
-        final String PASSWORD = "1234";
         final String SQL = "SELECT * FROM user WHERE licensePlate = ? AND password = ?";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD);
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
              PreparedStatement preparedStatement = conn.prepareStatement(SQL)) {
 
             preparedStatement.setString(1, licensePlate);
@@ -73,7 +70,6 @@ public class LoginForm extends JDialog {
                 user.surname = resultSet.getString("surname");
                 user.placeNumber = resultSet.getString("licensePlate");
                 user.password = resultSet.getString("password");
-
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -83,18 +79,14 @@ public class LoginForm extends JDialog {
     }
 
     private void openPayForm(User user) {
-        // Burada PayForm'u başlatıyoruz ve user bilgisini gönderiyoruz
+        PaymentManager paymentManager = new PaymentManager();
         SwingUtilities.invokeLater(() -> {
-            JFrame payFrame = new JFrame("Payment Page");
-            PayForm payForm = new PayForm(user); // User bilgilerini PayForm'a gönderiyoruz
-            payFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            payFrame.setSize(800, 600);
-            payFrame.add(payForm.getPayFormPanel()); // PayForm panelini ekliyoruz
-            payFrame.setVisible(true); // PayForm'u gösteriyoruz
+            PayForm payForm = new PayForm(user, paymentManager);
+            payForm.setVisible(true);
         });
     }
 
     public static void main(String[] args) {
-        new LoginForm(null); // Login formunu başlatıyoruz
+        new LoginForm(null); // Login formunu başlat
     }
 }

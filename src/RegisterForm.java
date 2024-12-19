@@ -1,9 +1,10 @@
+import Singleton.DatabaseConnection;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 
 public class RegisterForm extends JDialog {
@@ -14,6 +15,7 @@ public class RegisterForm extends JDialog {
     private JButton btnRegister;
     private JButton btnCancel;
     private JPanel registerPanel;
+    public User user;
 
     public RegisterForm(JFrame parent) {
         super(parent);
@@ -55,23 +57,18 @@ public class RegisterForm extends JDialog {
 
         if (user != null) {
             JOptionPane.showMessageDialog(this, "Kayıt başarılı!", "Başarılı", JOptionPane.INFORMATION_MESSAGE);
-            dispose(); // Kayıt ekranını kapat
+            dispose();
             new LoginForm(null); // Giriş ekranını aç
         } else {
             JOptionPane.showMessageDialog(this, "Kayıt başarısız oldu!", "HATA", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    public User user;
-
     private User addUserToDatabase(String name, String surname, String placeNumber, String password) {
         User user = null;
-        final String DB_URL = "jdbc:mysql://localhost:3306/otaparkdb?serverTimezone=UTC";
-        final String USER = "root";
-        final String PASSWORD = "1234";
         final String SQL = "INSERT INTO user (name, surname, licensePlate, password) VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD);
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
              PreparedStatement preparedStatement = conn.prepareStatement(SQL)) {
 
             preparedStatement.setString(1, name);
@@ -96,13 +93,6 @@ public class RegisterForm extends JDialog {
     }
 
     public static void main(String[] args) {
-        RegisterForm registerForm = new RegisterForm(null);
-        User user = registerForm.user;
-
-        if (user != null) {
-            System.out.println("Kayıt başarılı oldu");
-        } else {
-            System.out.println("Kayıt başarısız oldu");
-        }
+        new RegisterForm(null);
     }
 }

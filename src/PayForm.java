@@ -1,6 +1,4 @@
 import javax.swing.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.sql.*;
 
 public class PayForm extends JDialog {
@@ -11,10 +9,16 @@ public class PayForm extends JDialog {
     private JButton btnbtc1month;
     private JButton btnbtc1year;
     private JPanel payForm;
+    private JButton btnkayıtSil;
     private User user; // Kullanıcı bilgisi
+    private PaymentManager paymentManager;
 
-    public PayForm(User user) {
+    public PayForm(User user, PaymentManager paymentManager) {
         this.user = user; // Kullanıcı nesnesini al
+        this.paymentManager = paymentManager; // PaymentManager nesnesini al
+
+        // PaymentManager'a bir observer ekle
+        paymentManager.addObserver(new PaymentLogger());
 
         // Kredi Kartı 1 Aylık Ödeme Butonu
         btncrediCard1month.addActionListener(e -> handlePayment("Kredi Kartı", "1 Ay"));
@@ -31,9 +35,12 @@ public class PayForm extends JDialog {
 
         setContentPane(payForm);
         setTitle("Ödeme Sayfası");
-        setSize(400, 300);
+        setSize(700, 500);
         setModal(true);
         setLocationRelativeTo(null);
+
+        // Kayıt Silme Butonu ActionListener
+        btnkayıtSil.addActionListener(e -> handleRecordDeletion());
     }
 
     private void handlePayment(String method, String duration) {
@@ -53,17 +60,56 @@ public class PayForm extends JDialog {
 
             stmt.executeUpdate(); // Ödeme verisini veritabanına ekle
 
-            // Başarı mesajını `System.out.println` ile yazdır
-            System.out.println(String.format(
-                    "Ödeme Başarılı!\n\nİsim: %s %s\nAraç Plakası: %s\nÖdeme Yöntemi: %s\nSüre: %s",
+            // PaymentManager ile durumu güncelle
+            paymentManager.setPaymentStatus("Completed: " + method + " (" + duration + ")");
+
+            // Başarı mesajını göster
+            JOptionPane.showMessageDialog(this, String.format(
+                    "Ödeme Başarılı!\n\nİsim Soyisim: %s %s\nAraç Plakası: %s\nÖdeme Yöntemi: %s\nSüre: %s",
                     user.name, user.surname, user.placeNumber, method, duration
             ));
             dispose(); // Ödeme ekranını kapat
 
         } catch (SQLException ex) {
             ex.printStackTrace();
-            System.out.println("Ödeme sırasında hata oluştu!"); // Hata mesajını `System.out.println` ile yazdır
-            dispose(); // Hata durumunda da ekranı kapat
+            JOptionPane.showMessageDialog(this, "Ödeme sırasında hata oluştu!", "Hata", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void handleRecordDeletion() {
+        final String DB_URL = "jdbc:mysql://localhost:3306/otaparkdb?serverTimezone=UTC";
+        final String USER = "root";
+        final String PASSWORD = "1234";
+
+        int confirm = JOptionPane.showConfirmDialog(this, "Üyeliğinizi sonlandırmak istediğinize emin misiniz?", "Kayıt Silme", JOptionPane.YES_NO_OPTION);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD)) {
+
+                // Silinecek ödeme kaydını sil
+                String deletePaymentSQL = "DELETE FROM payment WHERE licensePlate = ?";
+                try (PreparedStatement stmtPayment = conn.prepareStatement(deletePaymentSQL)) {
+                    stmtPayment.setString(1, user.placeNumber);
+                    stmtPayment.executeUpdate();
+                }
+
+                // Silinecek kullanıcı kaydını sil
+                String deleteUserSQL = "DELETE FROM user WHERE licensePlate = ?";
+                try (PreparedStatement stmtUser = conn.prepareStatement(deleteUserSQL)) {
+                    stmtUser.setString(1, user.placeNumber);
+                    stmtUser.executeUpdate();
+                }
+
+                // PaymentManager ile durumu güncelle
+                paymentManager.setPaymentStatus("Kayıt Silindi");
+
+                JOptionPane.showMessageDialog(this, "Kayıtlar başarıyla silindi.");
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Kayıt silme sırasında hata oluştu!", "Hata", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "İşlem iptal edildi.");
         }
     }
 
